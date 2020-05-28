@@ -3,6 +3,7 @@ package command
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -16,6 +17,24 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
 )
+
+type Geometry struct {
+	TermWidth  int
+	TermHeight int
+	Density    float64
+}
+
+type Player struct {
+	X    int
+	Y    int
+	Char string
+}
+
+type Commit struct {
+	Email string
+	Sha   string
+	Char  string
+}
 
 func init() {
 	repoCmd.AddCommand(repoGardenCmd)
@@ -68,11 +87,6 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	userChar := map[string]string{}
 	charUser := map[string]string{}
 
-	type Commit struct {
-		Email string
-		Sha   string
-		Char  string
-	}
 	commits := []*Commit{}
 
 	for _, line := range commitLines {
@@ -105,16 +119,40 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	seed := computeSeed("TODO REPO NAME OR SOMETHING")
 	rand.Seed(seed)
 
+	geo := &Geometry{
+		TermWidth:  termWidth,
+		TermHeight: termHeight,
+		// TODO based on number of commits/cells instead of just hardcoding
+		Density: 0.4,
+	}
+
 	//cellCount := float64(termWidth * termHeight)
 	//flowerCount := float64(len(flowers))
 
 	//density := (cellCount / flowerCount)
 	//fmt.Println("DENSITY", density)
 
-	// TODO based on number of commits/cells instead of just hardcoding
-	density := 0.4
+	player := &Player{0, 0, utils.Bold("@")}
 
-	player := Player{0, 0, utils.Bold("@")}
+	clear()
+	drawGarden(out, commits, player, geo)
+
+	// thanks stackoverflow https://stackoverflow.com/a/17278776
+	exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
+	exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
+
+	var b []byte = make([]byte, 1)
+	for {
+		os.Stdin.Read(b)
+		break
+	}
+
+	fmt.Println()
+
+	return nil
+}
+
+func drawGarden(out io.Writer, commits []*Commit, player *Player, geo *Geometry) {
 	statusLine := ""
 
 	// TODO intelligent density. for now just every-other
@@ -123,9 +161,9 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	gardenRows := []string{}
 	cellIx := 0
 	grassChar := ","
-	for y := 0; y < termHeight; y++ {
+	for y := 0; y < geo.TermHeight; y++ {
 		row := ""
-		for x := 0; x < termWidth; x++ {
+		for x := 0; x < geo.TermWidth; x++ {
 			underPlayer := (player.X == x && player.Y == y)
 			char := ""
 
@@ -137,7 +175,7 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 				}
 			} else {
 				chance := rand.Float64()
-				if chance <= density {
+				if chance <= geo.Density {
 					commit := commits[cellIx]
 					char = commit.Char
 					if underPlayer {
@@ -160,31 +198,10 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		gardenRows = append(gardenRows, row)
 	}
 
-	clear()
 	for _, r := range gardenRows {
 		fmt.Fprintln(out, r)
 	}
 	fmt.Fprintf(out, utils.Bold(statusLine))
-
-	// thanks stackoverflow https://stackoverflow.com/a/17278776
-	exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
-	exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
-
-	var b []byte = make([]byte, 1)
-	for {
-		os.Stdin.Read(b)
-		break
-	}
-
-	fmt.Println()
-
-	return nil
-}
-
-type Player struct {
-	X    int
-	Y    int
-	Char string
 }
 
 func shaToColorFunc(sha string) func(string) string {
