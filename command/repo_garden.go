@@ -170,7 +170,7 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		TermWidth:  termWidth,
 		TermHeight: termHeight,
 		// TODO based on number of commits/cells instead of just hardcoding
-		Density: 0.4,
+		Density: 0.3,
 	}
 
 	//cellCount := float64(termWidth * termHeight)
@@ -248,6 +248,9 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 	grassChar := utils.Green(",")
 	garden := [][]*Cell{}
 	for y := 0; y < geo.TermHeight; y++ {
+		if cellIx == len(commits)-1 {
+			break
+		}
 		garden = append(garden, []*Cell{})
 		for x := 0; x < geo.TermWidth; x++ {
 			if cellIx == len(commits)-1 {
@@ -307,7 +310,6 @@ func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
 
 	fmt.Println()
 	fmt.Fprintln(out, utils.Bold(statusLine))
-	fmt.Printf("%#v\n", player)
 }
 
 /*
