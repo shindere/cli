@@ -1,14 +1,18 @@
 package command
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/cli/cli/git"
 	"github.com/cli/cli/internal/run"
+	"github.com/cli/cli/utils"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func init() {
@@ -25,6 +29,7 @@ func repoQuilt(cmd *cobra.Command, args []string) error {
 	// TODO color
 	// TODO character mapping
 	// TODO respect multiple author commits
+	// TODO static version
 
 	// starting from top left, print a character per commit. do it as one line so it wraps.
 
@@ -33,6 +38,22 @@ func repoQuilt(cmd *cobra.Command, args []string) error {
 	//if err != nil {
 	//	return err
 	//}
+
+	out := colorableOut(cmd)
+
+	isTTY := false
+	outFile, isFile := out.(*os.File)
+	if isFile {
+		isTTY = utils.IsTerminal(outFile)
+		if isTTY {
+			// FIXME: duplicates colorableOut
+			out = utils.NewColorable(outFile)
+		}
+	}
+
+	if !isTTY {
+		return errors.New("TODO")
+	}
 
 	commitsCmd := git.GitCommand("log", "--pretty=format:%h,%ae")
 	output, err := run.PrepareCmd(commitsCmd).Output()
@@ -44,8 +65,7 @@ func repoQuilt(cmd *cobra.Command, args []string) error {
 
 	userChar := map[string]string{}
 	charUser := map[string]string{}
-
-	out := colorableOut(cmd)
+	flowers := []string{}
 
 	for _, line := range commitLines {
 		parts := strings.Split(line, ",")
@@ -62,7 +82,24 @@ func repoQuilt(cmd *cobra.Command, args []string) error {
 		char := userChar[email]
 
 		colorFunc := shaToColorFunc(sha)
-		fmt.Fprintf(out, "%s", colorFunc(char))
+		flowers = append(flowers, fmt.Sprintf("%s", colorFunc(char)))
+	}
+
+	termWidth, termHeight, err := terminal.GetSize(int(outFile.Fd()))
+	if err != nil {
+		return err
+	}
+	gardenRows := []string{}
+	for y := 0; y < termHeight; y++ {
+		row := ""
+		for x := 0; x < termWidth; x++ {
+			row += fmt.Sprintf(utils.Green("#"))
+		}
+		gardenRows = append(gardenRows, row)
+	}
+
+	for _, r := range gardenRows {
+		fmt.Fprintln(out, r)
 	}
 
 	fmt.Println()
