@@ -16,16 +16,16 @@ import (
 )
 
 func init() {
-	repoCmd.AddCommand(repoQuiltCmd)
+	repoCmd.AddCommand(repoGardenCmd)
 }
 
-var repoQuiltCmd = &cobra.Command{
-	Use:   "quilt",
+var repoGardenCmd = &cobra.Command{
+	Use:   "garden",
 	Short: "A unique piece of art derived from git history",
-	RunE:  repoQuilt,
+	RunE:  repoGarden,
 }
 
-func repoQuilt(cmd *cobra.Command, args []string) error {
+func repoGarden(cmd *cobra.Command, args []string) error {
 	// TODO color
 	// TODO character mapping
 	// TODO respect multiple author commits
