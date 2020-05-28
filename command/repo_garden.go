@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -130,11 +131,20 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		gardenRows = append(gardenRows, row)
 	}
 
+	clear()
 	for _, r := range gardenRows {
 		fmt.Fprintln(out, r)
 	}
 
-	fmt.Println()
+	// thanks stackoverflow https://stackoverflow.com/a/17278776
+	exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
+	exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
+
+	var b []byte = make([]byte, 1)
+	for {
+		os.Stdin.Read(b)
+		break
+	}
 
 	return nil
 }
