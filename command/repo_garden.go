@@ -67,7 +67,13 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 
 	userChar := map[string]string{}
 	charUser := map[string]string{}
-	flowers := []string{}
+
+	type Commit struct {
+		Email string
+		Sha   string
+		Char  string
+	}
+	commits := []*Commit{}
 
 	for _, line := range commitLines {
 		parts := strings.Split(line, ",")
@@ -84,7 +90,8 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		char := userChar[email]
 
 		colorFunc := shaToColorFunc(sha)
-		flowers = append(flowers, fmt.Sprintf("%s", colorFunc(char)))
+		colorChar := fmt.Sprintf("%s", colorFunc(char))
+		commits = append(commits, &Commit{email, sha, colorChar})
 	}
 
 	termWidth, termHeight, err := terminal.GetSize(int(outFile.Fd()))
@@ -122,7 +129,7 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 			underPlayer := (player.X == x && player.Y == y)
 			char := ""
 
-			if cellIx == len(flowers)-1 {
+			if cellIx == len(commits)-1 {
 				char = utils.Green(grassChar)
 				if underPlayer {
 					char = player.Char
@@ -131,10 +138,11 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 			} else {
 				chance := rand.Float64()
 				if chance <= density {
-					char = flowers[cellIx]
+					commit := commits[cellIx]
+					char = commit.Char
 					if underPlayer {
 						char = player.Char
-						statusLine = "You're standing on a patch of grass in a field of wildflowers."
+						statusLine = fmt.Sprintf("You're standing at a flower called %s planted by %s.", commit.Sha, commit.Email)
 					}
 
 				} else {
