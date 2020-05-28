@@ -3,6 +3,7 @@ package command
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"regexp"
 	"strconv"
@@ -90,18 +91,20 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	/*
-		so i have F flowers and C cells. i want to put as many of the flowers in as i can fit with a reasonable density.
+	termWidth -= 10
+	termHeight -= 10
 
-		if F=C i want density D to be 50% so there is still grass.
+	seed := computeSeed("TODO REPO NAME OR SOMETHING")
+	rand.Seed(seed)
 
-		Otherwise...
+	//cellCount := float64(termWidth * termHeight)
+	//flowerCount := float64(len(flowers))
 
+	//density := (cellCount / flowerCount)
+	//fmt.Println("DENSITY", density)
 
-
-	*/
-
-	// TODO random seed based on owner/repo
+	// TODO based on number of commits/cells instead of just hardcoding
+	density := 0.4
 
 	// TODO intelligent density. for now just every-other
 	gardenRows := []string{}
@@ -116,18 +119,11 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 				row += fmt.Sprintf(utils.Green(grassChar))
 				continue
 			}
-			if y%2 == 0 {
-				if x%2 == 0 {
-					row += fmt.Sprintf(utils.Green(grassChar))
-				} else {
-					row += flowers[cellIx]
-				}
+			chance := rand.Float64()
+			if chance <= density {
+				row += flowers[cellIx]
 			} else {
-				if x%2 == 0 {
-					row += flowers[cellIx]
-				} else {
-					row += fmt.Sprintf(utils.Green(grassChar))
-				}
+				row += fmt.Sprintf(utils.Green(grassChar))
 			}
 			cellIx++
 		}
@@ -203,4 +199,8 @@ func emailToChar(email string) string {
 func outputLines(output []byte) []string {
 	lines := strings.TrimSuffix(string(output), "\n")
 	return strings.Split(lines, "\n")
+}
+
+func computeSeed(seed string) int64 {
+	return 1234567890
 }
