@@ -89,11 +89,34 @@ func repoQuilt(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// TODO intelligent density. for now just every-other
 	gardenRows := []string{}
+	cellIx := 0
+	grassChar := ","
 	for y := 0; y < termHeight; y++ {
 		row := ""
 		for x := 0; x < termWidth; x++ {
-			row += fmt.Sprintf(utils.Green("#"))
+			// TODO variety of grass characters
+			// TODO animate wind blowing on the grass
+			if cellIx == len(flowers)-1 {
+				row += fmt.Sprintf(utils.Green(grassChar))
+				continue
+			}
+			if y%2 == 0 {
+				if x%2 == 0 {
+					row += fmt.Sprintf(utils.Green(grassChar))
+				} else {
+					row += flowers[cellIx]
+				}
+			} else {
+				if x%2 == 0 {
+					row += flowers[cellIx]
+				} else {
+					row += fmt.Sprintf(utils.Green(grassChar))
+				}
+			}
+			cellIx++
 		}
 		gardenRows = append(gardenRows, row)
 	}
