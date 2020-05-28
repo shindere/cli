@@ -107,26 +107,47 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	// TODO based on number of commits/cells instead of just hardcoding
 	density := 0.4
 
+	player := Player{0, 0, utils.Bold("@")}
+	statusLine := ""
+
 	// TODO intelligent density. for now just every-other
+	// TODO variety of grass characters
+	// TODO animate wind blowing on the grass
 	gardenRows := []string{}
 	cellIx := 0
 	grassChar := ","
 	for y := 0; y < termHeight; y++ {
 		row := ""
 		for x := 0; x < termWidth; x++ {
-			// TODO variety of grass characters
-			// TODO animate wind blowing on the grass
+			underPlayer := (player.X == x && player.Y == y)
+			char := ""
+
 			if cellIx == len(flowers)-1 {
-				row += fmt.Sprintf(utils.Green(grassChar))
-				continue
-			}
-			chance := rand.Float64()
-			if chance <= density {
-				row += flowers[cellIx]
+				char = utils.Green(grassChar)
+				if underPlayer {
+					char = player.Char
+					statusLine = "You're standing on a patch of grass in a field of wildflowers."
+				}
 			} else {
-				row += fmt.Sprintf(utils.Green(grassChar))
+				chance := rand.Float64()
+				if chance <= density {
+					char = flowers[cellIx]
+					if underPlayer {
+						char = player.Char
+						statusLine = "You're standing on a patch of grass in a field of wildflowers."
+					}
+
+				} else {
+					char = utils.Green(grassChar)
+					if underPlayer {
+						char = player.Char
+						statusLine = "You're standing on a patch of grass in a field of wildflowers."
+					}
+				}
+				cellIx++
 			}
-			cellIx++
+
+			row += char
 		}
 		gardenRows = append(gardenRows, row)
 	}
@@ -135,6 +156,7 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	for _, r := range gardenRows {
 		fmt.Fprintln(out, r)
 	}
+	fmt.Fprintf(out, utils.Bold(statusLine))
 
 	// thanks stackoverflow https://stackoverflow.com/a/17278776
 	exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
@@ -146,7 +168,15 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		break
 	}
 
+	fmt.Println()
+
 	return nil
+}
+
+type Player struct {
+	X    int
+	Y    int
+	Char string
 }
 
 func shaToColorFunc(sha string) func(string) string {
