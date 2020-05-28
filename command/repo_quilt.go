@@ -90,6 +90,19 @@ func repoQuilt(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	/*
+		so i have F flowers and C cells. i want to put as many of the flowers in as i can fit with a reasonable density.
+
+		if F=C i want density D to be 50% so there is still grass.
+
+		Otherwise...
+
+
+
+	*/
+
+	// TODO random seed based on owner/repo
+
 	// TODO intelligent density. for now just every-other
 	gardenRows := []string{}
 	cellIx := 0
