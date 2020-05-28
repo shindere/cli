@@ -33,9 +33,10 @@ type Player struct {
 }
 
 type Commit struct {
-	Email string
-	Sha   string
-	Char  string
+	Email  string
+	Handle string
+	Sha    string
+	Char   string
 }
 
 type Grass struct {
@@ -152,7 +153,9 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 
 		colorFunc := shaToColorFunc(sha)
 		colorChar := fmt.Sprintf("%s", colorFunc(char))
-		commits = append(commits, &Commit{email, sha, colorChar})
+		parts = strings.Split(email, "@")
+		handle := parts[0]
+		commits = append(commits, &Commit{email, handle, sha, colorChar})
 	}
 
 	termWidth, termHeight, err := terminal.GetSize(int(outFile.Fd()))
@@ -287,7 +290,7 @@ func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
 				char = utils.Bold(player.Char)
 				if gardenCell.Commit != nil {
 					statusLine = fmt.Sprintf("You're standing at a flower called %s planted by %s.",
-						gardenCell.Commit.Sha, gardenCell.Commit.Email)
+						gardenCell.Commit.Sha, gardenCell.Commit.Handle)
 				} else if gardenCell.Grass != nil {
 					statusLine = "You're standing on a patch of grass in a field of wildflowers."
 				} else {
