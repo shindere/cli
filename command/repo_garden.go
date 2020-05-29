@@ -41,17 +41,7 @@ type Commit struct {
 	Char   string
 }
 
-type Flavor struct {
-	Char       string
-	StatusLine string
-}
-
 type Cell struct {
-	Commit *Commit
-	Flavor *Flavor
-}
-
-type CellP struct {
 	Char       string
 	StatusLine string
 }
@@ -107,9 +97,9 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	// TODO static version
 	// TODO get contributor list
 	// TODO switch to GH usernames
-	// TODO put in a sign with repo name
 	// TODO better bounds handling
 	// TODO repo seed
+	// TODO add a stream
 
 	ctx := contextForCommand(cmd)
 	client, err := apiClientForContext(ctx)
@@ -258,7 +248,7 @@ func isQuit(b []byte) bool {
 
 func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 	cellIx := 0
-	grassChar := utils.Green(",")
+	grassCell := &Cell{utils.Green(","), "You're standing on a patch of grass in a field of wildflowers."}
 	garden := [][]*Cell{}
 	for y := 0; y < geo.Height; y++ {
 		if cellIx == len(commits)-1 {
@@ -268,39 +258,33 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 		for x := 0; x < geo.Width; x++ {
 			if y == 0 && (x < geo.Width/2 || x > geo.Width/2) {
 				garden[y] = append(garden[y], &Cell{
-					Flavor: &Flavor{
-						Char:       " ",
-						StatusLine: "You're standing by a wildflower garden. There is a light breeze.",
-					}})
+					Char:       " ",
+					StatusLine: "You're standing by a wildflower garden. There is a light breeze.",
+				})
 				continue
 			} else if y == 0 && x == geo.Width/2 {
 				garden[y] = append(garden[y], &Cell{
-					Flavor: &Flavor{
-						Char:       utils.RGB(139, 69, 19, "+"),
-						StatusLine: "You're standing in front of a weather-beaten sign that says " + ghrepo.FullName(geo.Repository),
-					},
+					Char:       utils.RGB(139, 69, 19, "+"),
+					StatusLine: fmt.Sprintf("You're standing in front of a weather-beaten sign that says %s.", ghrepo.FullName(geo.Repository)),
 				})
 				continue
 			}
 
-			grassCell := &Flavor{grassChar, "You're standing on a patch of grass in a field of wildflowers."}
 			if cellIx == len(commits)-1 {
-				garden[y] = append(garden[y], &Cell{
-					Flavor: grassCell,
-				})
+				garden[y] = append(garden[y], grassCell)
 				continue
 			}
 
 			chance := rand.Float64()
 			if chance <= geo.Density {
+				commit := commits[cellIx]
 				garden[y] = append(garden[y], &Cell{
-					Commit: commits[cellIx],
+					Char:       commits[cellIx].Char,
+					StatusLine: fmt.Sprintf("You're standing at a flower called %s planted by %s.", commit.Sha, commit.Handle),
 				})
 				cellIx++
 			} else {
-				garden[y] = append(garden[y], &Cell{
-					Flavor: grassCell,
-				})
+				garden[y] = append(garden[y], grassCell)
 			}
 		}
 	}
@@ -315,23 +299,10 @@ func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
 			char := ""
 			underPlayer := (player.X == x && player.Y == y)
 			if underPlayer {
+				statusLine = gardenCell.StatusLine
 				char = utils.Bold(player.Char)
-				if gardenCell.Commit != nil {
-					statusLine = fmt.Sprintf("You're standing at a flower called %s planted by %s.",
-						gardenCell.Commit.Sha, gardenCell.Commit.Handle)
-				} else if gardenCell.Flavor != nil {
-					statusLine = gardenCell.Flavor.StatusLine
-				} else {
-					panic("whoa there")
-				}
 			} else {
-				if gardenCell.Commit != nil {
-					char = gardenCell.Commit.Char
-				} else if gardenCell.Flavor != nil {
-					char = gardenCell.Flavor.Char
-				} else {
-					panic("whoa there")
-				}
+				char = gardenCell.Char
 			}
 
 			fmt.Fprint(out, char)
