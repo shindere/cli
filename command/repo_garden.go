@@ -229,14 +229,14 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 			if (y > 0 && (x == 0 || x == geo.Width-1)) || y == geo.Height-1 {
 				garden[y] = append(garden[y], &Cell{
 					Char:       utils.RGB(0, 150, 0, "^"),
-					StatusLine: "You are standing under a tall, leafy tree.",
+					StatusLine: "You're standing under a tall, leafy tree.",
 				})
 				continue
 			}
 			if x == streamIx {
 				garden[y] = append(garden[y], &Cell{
 					Char:       utils.RGB(tint, tint, 255, "#"),
-					StatusLine: "You are standing in a shallow stream. It's refreshing.",
+					StatusLine: "You're standing in a shallow stream. It's refreshing.",
 				})
 				tint += 15
 				streamIx--
