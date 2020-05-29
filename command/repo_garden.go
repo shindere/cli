@@ -27,10 +27,11 @@ type Geometry struct {
 }
 
 type Player struct {
-	X    int
-	Y    int
-	Char string
-	Geo  *Geometry
+	X                   int
+	Y                   int
+	Char                string
+	Geo                 *Geometry
+	ShoeMoistureContent int
 }
 
 type Commit struct {
@@ -148,7 +149,7 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	player := &Player{0, 0, utils.Bold("@"), geo}
+	player := &Player{0, 0, utils.Bold("@"), geo, 0}
 
 	clear()
 	garden := plantGarden(commits, geo)
@@ -300,6 +301,20 @@ func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
 			if underPlayer {
 				statusLine = gardenCell.StatusLine
 				char = utils.Bold(player.Char)
+
+				if strings.Contains(gardenCell.StatusLine, "stream") {
+					player.ShoeMoistureContent = 5
+				} else {
+					if player.ShoeMoistureContent > 1 {
+						statusLine += " Your shoes squish with water from the stream."
+					} else if player.ShoeMoistureContent == 1 {
+						statusLine += " Your shoes seem to have dried out."
+					}
+
+					if player.ShoeMoistureContent > 0 {
+						player.ShoeMoistureContent--
+					}
+				}
 			} else {
 				char = gardenCell.Char
 			}
