@@ -62,7 +62,7 @@ func (p *Player) move(direction Direction) {
 		}
 		p.Y--
 	case DirDown:
-		if p.Y == p.Geo.Height {
+		if p.Y == p.Geo.Height-1 {
 			return
 		}
 		p.Y++
@@ -72,7 +72,7 @@ func (p *Player) move(direction Direction) {
 		}
 		p.X--
 	case DirRight:
-		if p.X == p.Geo.Width {
+		if p.X == p.Geo.Width-1 {
 			return
 		}
 		p.X++
@@ -92,10 +92,7 @@ var repoGardenCmd = &cobra.Command{
 }
 
 func repoGarden(cmd *cobra.Command, args []string) error {
-	// TODO respect multiple author commits
 	// TODO static version
-	// TODO better bounds handling
-	// TODO add a stream
 
 	ctx := contextForCommand(cmd)
 	client, err := apiClientForContext(ctx)
@@ -230,6 +227,13 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 		}
 		garden = append(garden, []*Cell{})
 		for x := 0; x < geo.Width; x++ {
+			if (y > 0 && (x == 0 || x == geo.Width-1)) || y == geo.Height-1 {
+				garden[y] = append(garden[y], &Cell{
+					Char:       utils.RGB(0, 150, 0, "^"),
+					StatusLine: "You are standing under a tall, leafy tree.",
+				})
+				continue
+			}
 			if x == streamIx {
 				garden[y] = append(garden[y], &Cell{
 					Char:       utils.RGB(tint, tint, 255, "#"),
