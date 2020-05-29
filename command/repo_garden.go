@@ -11,10 +11,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/cli/cli/git"
 	"github.com/cli/cli/internal/ghrepo"
-	"github.com/cli/cli/internal/run"
 	"github.com/cli/cli/utils"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
@@ -88,17 +87,14 @@ func init() {
 
 var repoGardenCmd = &cobra.Command{
 	Use:   "garden",
-	Short: "A unique piece of art derived from git history",
+	Short: "wander around a repository as a garden",
 	RunE:  repoGarden,
 }
 
 func repoGarden(cmd *cobra.Command, args []string) error {
 	// TODO respect multiple author commits
 	// TODO static version
-	// TODO get contributor list
-	// TODO switch to GH usernames
 	// TODO better bounds handling
-	// TODO repo seed
 	// TODO add a stream
 
 	ctx := contextForCommand(cmd)
@@ -106,14 +102,61 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	baseRepo, err := determineBaseRepo(client, cmd, ctx)
+
+	var baseRepo ghrepo.Interface
+	if len(args) > 0 {
+		baseRepo, err = ghrepo.FromFullName(args[0])
+	} else {
+		baseRepo, err = determineBaseRepo(client, cmd, ctx)
+	}
 	if err != nil {
 		return err
 	}
-	//repo, err := api.GitHubRepo(client, baseRepo)
-	//if err != nil {
-	//	return err
-	//}
+
+	type Item struct {
+		Author struct {
+			Login string
+		}
+		Sha string
+	}
+
+	type Result []Item
+
+	commits := []*Commit{}
+
+	pathF := func(page int) string {
+		return fmt.Sprintf("repos/%s/%s/commits?per_page=100&page=%d", baseRepo.RepoOwner(), baseRepo.RepoName(), page)
+	}
+	page := 1
+	paginating := true
+	fmt.Println("gathering commits; this could take a minute...")
+	for paginating {
+		result := Result{}
+		resp, err := client.RESTWithResponse("GET", pathF(page), nil, &result)
+		if err != nil {
+			return err
+		}
+		for _, r := range result {
+			colorFunc := shaToColorFunc(r.Sha)
+			handle := r.Author.Login
+			commits = append(commits, &Commit{
+				Handle: handle,
+				Sha:    r.Sha,
+				Char:   colorFunc(string(handle[0])),
+			})
+		}
+		link := resp.Header["Link"]
+		if !strings.Contains(link[0], "last") {
+			paginating = false
+		}
+		page++
+		time.Sleep(500)
+	}
+
+	// reverse to get older commits first
+	for i, j := 0, len(commits)-1; i < j; i, j = i+1, j-1 {
+		commits[i], commits[j] = commits[j], commits[i]
+	}
 
 	out := colorableOut(cmd)
 
@@ -129,38 +172,6 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 
 	if !isTTY {
 		return errors.New("TODO")
-	}
-
-	commitsCmd := git.GitCommand("log", "--pretty=format:%h,%ae")
-	output, err := run.PrepareCmd(commitsCmd).Output()
-	if err != nil {
-		return err
-	}
-
-	commitLines := outputLines(output)
-
-	userChar := map[string]string{}
-	charUser := map[string]string{}
-
-	commits := []*Commit{}
-
-	for _, line := range commitLines {
-		parts := strings.Split(line, ",")
-		sha := parts[0]
-		email := parts[1]
-
-		if _, ok := userChar[email]; !ok {
-			char := emailToChar(email)
-			charUser[char] = email
-			userChar[email] = char
-		}
-		char := userChar[email]
-
-		colorFunc := shaToColorFunc(sha)
-		colorChar := fmt.Sprintf("%s", colorFunc(char))
-		parts = strings.Split(email, "@")
-		handle := parts[0]
-		commits = append(commits, &Commit{email, handle, sha, colorChar})
 	}
 
 	termWidth, termHeight, err := terminal.GetSize(int(outFile.Fd()))
@@ -280,7 +291,7 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 				commit := commits[cellIx]
 				garden[y] = append(garden[y], &Cell{
 					Char:       commits[cellIx].Char,
-					StatusLine: fmt.Sprintf("You're standing at a flower called %s planted by %s.", commit.Sha, commit.Handle),
+					StatusLine: fmt.Sprintf("You're standing at a flower called %s planted by %s.", commit.Sha[0:6], commit.Handle),
 				})
 				cellIx++
 			} else {
