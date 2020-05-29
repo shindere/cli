@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cli/cli/api"
 	"github.com/cli/cli/internal/ghrepo"
 	"github.com/cli/cli/utils"
 	"github.com/spf13/cobra"
@@ -116,54 +117,6 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	seed := computeSeed(ghrepo.FullName(baseRepo))
 	rand.Seed(seed)
 
-	type Item struct {
-		Author struct {
-			Login string
-		}
-		Sha string
-	}
-
-	type Result []Item
-
-	commits := []*Commit{}
-
-	pathF := func(page int) string {
-		return fmt.Sprintf("repos/%s/%s/commits?per_page=100&page=%d", baseRepo.RepoOwner(), baseRepo.RepoName(), page)
-	}
-	page := 1
-	paginating := true
-	fmt.Println("gathering commits; this could take a minute...")
-	for paginating {
-		result := Result{}
-		resp, err := client.RESTWithResponse("GET", pathF(page), nil, &result)
-		if err != nil {
-			return err
-		}
-		for _, r := range result {
-			colorFunc := shaToColorFunc(r.Sha)
-			handle := r.Author.Login
-			if handle == "" {
-				handle = "a mysterious stranger"
-			}
-			commits = append(commits, &Commit{
-				Handle: handle,
-				Sha:    r.Sha,
-				Char:   colorFunc(string(handle[0])),
-			})
-		}
-		link := resp.Header["Link"]
-		if !strings.Contains(link[0], "last") {
-			paginating = false
-		}
-		page++
-		time.Sleep(500)
-	}
-
-	// reverse to get older commits first
-	for i, j := 0, len(commits)-1; i < j; i, j = i+1, j-1 {
-		commits[i], commits[j] = commits[j], commits[i]
-	}
-
 	out := colorableOut(cmd)
 
 	isTTY := false
@@ -196,6 +149,9 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		Density: 0.3,
 	}
 
+	maxCommits := geo.Width * geo.Height
+
+	commits, err := getCommits(client, baseRepo, maxCommits)
 	player := &Player{0, 0, utils.Bold("@"), geo}
 
 	clear()
@@ -349,27 +305,6 @@ func shaToColorFunc(sha string) func(string) string {
 	}
 }
 
-func emailToChar(email string) string {
-	numRE := regexp.MustCompile(`^[0-9]+$`)
-	parts := strings.Split(email, "@")
-	handle := parts[0]
-	if strings.Contains(handle, "+") {
-		parts = strings.Split(handle, "+")
-		if numRE.MatchString(parts[0]) {
-			return string(parts[1][0])
-		} else {
-			return string(parts[0][0])
-		}
-	} else {
-		return string(handle[0])
-	}
-}
-
-func outputLines(output []byte) []string {
-	lines := strings.TrimSuffix(string(output), "\n")
-	return strings.Split(lines, "\n")
-}
-
 func computeSeed(seed string) int64 {
 	runes := []rune(seed)
 
@@ -385,4 +320,60 @@ func computeSeed(seed string) int64 {
 	}
 
 	return result
+}
+
+func getCommits(client *api.Client, repo ghrepo.Interface, maxCommits int) ([]*Commit, error) {
+	type Item struct {
+		Author struct {
+			Login string
+		}
+		Sha string
+	}
+
+	type Result []Item
+
+	commits := []*Commit{}
+
+	pathF := func(page int) string {
+		return fmt.Sprintf("repos/%s/%s/commits?per_page=100&page=%d", repo.RepoOwner(), repo.RepoName(), page)
+	}
+
+	page := 1
+	paginating := true
+	fmt.Println("gathering commits; this could take a minute...")
+	for paginating {
+		if len(commits) >= maxCommits {
+			break
+		}
+		result := Result{}
+		resp, err := client.RESTWithResponse("GET", pathF(page), nil, &result)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range result {
+			colorFunc := shaToColorFunc(r.Sha)
+			handle := r.Author.Login
+			if handle == "" {
+				handle = "a mysterious stranger"
+			}
+			commits = append(commits, &Commit{
+				Handle: handle,
+				Sha:    r.Sha,
+				Char:   colorFunc(string(handle[0])),
+			})
+		}
+		link := resp.Header["Link"]
+		if !strings.Contains(link[0], "last") {
+			paginating = false
+		}
+		page++
+		time.Sleep(500)
+	}
+
+	// reverse to get older commits first
+	for i, j := 0, len(commits)-1; i < j; i, j = i+1, j-1 {
+		commits[i], commits[j] = commits[j], commits[i]
+	}
+
+	return commits, nil
 }
