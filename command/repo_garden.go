@@ -87,31 +87,17 @@ func init() {
 
 var repoGardenCmd = &cobra.Command{
 	Use:   "garden",
-	Short: "wander around a repository as a garden",
+	Short: "Wander around a repository as a garden",
+	Long:  "Use WASD or vi keys to move and q to quit.",
 	RunE:  repoGarden,
 }
 
 func repoGarden(cmd *cobra.Command, args []string) error {
-	// TODO static version
-
 	ctx := contextForCommand(cmd)
 	client, err := apiClientForContext(ctx)
 	if err != nil {
 		return err
 	}
-
-	var baseRepo ghrepo.Interface
-	if len(args) > 0 {
-		baseRepo, err = ghrepo.FromFullName(args[0])
-	} else {
-		baseRepo, err = determineBaseRepo(client, cmd, ctx)
-	}
-	if err != nil {
-		return err
-	}
-
-	seed := computeSeed(ghrepo.FullName(baseRepo))
-	rand.Seed(seed)
 
 	out := colorableOut(cmd)
 
@@ -126,8 +112,21 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	}
 
 	if !isTTY {
-		return errors.New("TODO")
+		return errors.New("must be connected to a terminal")
 	}
+
+	var baseRepo ghrepo.Interface
+	if len(args) > 0 {
+		baseRepo, err = ghrepo.FromFullName(args[0])
+	} else {
+		baseRepo, err = determineBaseRepo(client, cmd, ctx)
+	}
+	if err != nil {
+		return err
+	}
+
+	seed := computeSeed(ghrepo.FullName(baseRepo))
+	rand.Seed(seed)
 
 	termWidth, termHeight, err := terminal.GetSize(int(outFile.Fd()))
 	if err != nil {
