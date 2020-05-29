@@ -171,7 +171,7 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	termWidth -= 10
 	termHeight -= 10
 
-	seed := computeSeed("TODO REPO NAME OR SOMETHING")
+	seed := computeSeed(ghrepo.FullName(baseRepo))
 	rand.Seed(seed)
 
 	geo := &Geometry{
@@ -357,5 +357,18 @@ func outputLines(output []byte) []string {
 }
 
 func computeSeed(seed string) int64 {
-	return 1234567890
+	runes := []rune(seed)
+
+	lol := ""
+
+	for _, r := range runes {
+		lol += fmt.Sprintf("%d", int(r))
+	}
+
+	result, err := strconv.ParseInt(lol, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	return result
 }
