@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/cli/cli/git"
+	"github.com/cli/cli/internal/ghrepo"
 	"github.com/cli/cli/internal/run"
 	"github.com/cli/cli/utils"
 	"github.com/spf13/cobra"
@@ -20,9 +21,10 @@ import (
 )
 
 type Geometry struct {
-	TermWidth  int
-	TermHeight int
+	Width      int
+	Height     int
 	Density    float64
+	Repository ghrepo.Interface
 }
 
 type Player struct {
@@ -39,13 +41,19 @@ type Commit struct {
 	Char   string
 }
 
-type Grass struct {
-	Char string
+type Flavor struct {
+	Char       string
+	StatusLine string
 }
 
 type Cell struct {
 	Commit *Commit
-	Grass  *Grass
+	Flavor *Flavor
+}
+
+type CellP struct {
+	Char       string
+	StatusLine string
 }
 
 const (
@@ -65,7 +73,7 @@ func (p *Player) move(direction Direction) {
 		}
 		p.Y--
 	case DirDown:
-		if p.Y == p.Geo.TermHeight {
+		if p.Y == p.Geo.Height {
 			return
 		}
 		p.Y++
@@ -75,7 +83,7 @@ func (p *Player) move(direction Direction) {
 		}
 		p.X--
 	case DirRight:
-		if p.X == p.Geo.TermWidth {
+		if p.X == p.Geo.Width {
 			return
 		}
 		p.X++
@@ -95,15 +103,24 @@ var repoGardenCmd = &cobra.Command{
 }
 
 func repoGarden(cmd *cobra.Command, args []string) error {
-	// TODO color
-	// TODO character mapping
 	// TODO respect multiple author commits
 	// TODO static version
+	// TODO get contributor list
+	// TODO switch to GH usernames
+	// TODO put in a sign with repo name
+	// TODO better bounds handling
+	// TODO repo seed
 
-	// starting from top left, print a character per commit. do it as one line so it wraps.
-
-	//ctx := contextForCommand(cmd)
-	//client, err := apiClientForContext(ctx)
+	ctx := contextForCommand(cmd)
+	client, err := apiClientForContext(ctx)
+	if err != nil {
+		return err
+	}
+	baseRepo, err := determineBaseRepo(client, cmd, ctx)
+	if err != nil {
+		return err
+	}
+	//repo, err := api.GitHubRepo(client, baseRepo)
 	//if err != nil {
 	//	return err
 	//}
@@ -143,8 +160,6 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		email := parts[1]
 
 		if _, ok := userChar[email]; !ok {
-			// TODO dedupe chosen characters
-			//char := emailToChar(client, email)
 			char := emailToChar(email)
 			charUser[char] = email
 			userChar[email] = char
@@ -170,17 +185,12 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	rand.Seed(seed)
 
 	geo := &Geometry{
-		TermWidth:  termWidth,
-		TermHeight: termHeight,
+		Width:      termWidth,
+		Height:     termHeight,
+		Repository: baseRepo,
 		// TODO based on number of commits/cells instead of just hardcoding
 		Density: 0.3,
 	}
-
-	//cellCount := float64(termWidth * termHeight)
-	//flowerCount := float64(len(flowers))
-
-	//density := (cellCount / flowerCount)
-	//fmt.Println("DENSITY", density)
 
 	player := &Player{0, 0, utils.Bold("@"), geo}
 
@@ -250,15 +260,33 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 	cellIx := 0
 	grassChar := utils.Green(",")
 	garden := [][]*Cell{}
-	for y := 0; y < geo.TermHeight; y++ {
+	for y := 0; y < geo.Height; y++ {
 		if cellIx == len(commits)-1 {
 			break
 		}
 		garden = append(garden, []*Cell{})
-		for x := 0; x < geo.TermWidth; x++ {
+		for x := 0; x < geo.Width; x++ {
+			if y == 0 && (x < geo.Width/2 || x > geo.Width/2) {
+				garden[y] = append(garden[y], &Cell{
+					Flavor: &Flavor{
+						Char:       " ",
+						StatusLine: "You're standing by a wildflower garden. There is a light breeze.",
+					}})
+				continue
+			} else if y == 0 && x == geo.Width/2 {
+				garden[y] = append(garden[y], &Cell{
+					Flavor: &Flavor{
+						Char:       utils.RGB(139, 69, 19, "+"),
+						StatusLine: "You're standing in front of a weather-beaten sign that says " + ghrepo.FullName(geo.Repository),
+					},
+				})
+				continue
+			}
+
+			grassCell := &Flavor{grassChar, "You're standing on a patch of grass in a field of wildflowers."}
 			if cellIx == len(commits)-1 {
 				garden[y] = append(garden[y], &Cell{
-					Grass: &Grass{grassChar},
+					Flavor: grassCell,
 				})
 				continue
 			}
@@ -271,7 +299,7 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 				cellIx++
 			} else {
 				garden[y] = append(garden[y], &Cell{
-					Grass: &Grass{grassChar},
+					Flavor: grassCell,
 				})
 			}
 		}
@@ -291,16 +319,16 @@ func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
 				if gardenCell.Commit != nil {
 					statusLine = fmt.Sprintf("You're standing at a flower called %s planted by %s.",
 						gardenCell.Commit.Sha, gardenCell.Commit.Handle)
-				} else if gardenCell.Grass != nil {
-					statusLine = "You're standing on a patch of grass in a field of wildflowers."
+				} else if gardenCell.Flavor != nil {
+					statusLine = gardenCell.Flavor.StatusLine
 				} else {
 					panic("whoa there")
 				}
 			} else {
 				if gardenCell.Commit != nil {
 					char = gardenCell.Commit.Char
-				} else if gardenCell.Grass != nil {
-					char = gardenCell.Grass.Char
+				} else if gardenCell.Flavor != nil {
+					char = gardenCell.Flavor.Char
 				} else {
 					panic("whoa there")
 				}
@@ -314,60 +342,6 @@ func drawGarden(out io.Writer, garden [][]*Cell, player *Player) {
 	fmt.Println()
 	fmt.Fprintln(out, utils.Bold(statusLine))
 }
-
-/*
-func drawGardenOld(out io.Writer, garden [][]*Cell, player *Player, geo *Geometry) {
-	statusLine := ""
-
-	// TODO intelligent density. for now just every-other
-	// TODO variety of grass characters
-	// TODO animate wind blowing on the grass
-	gardenRows := []string{}
-	cellIx := 0
-	grassChar := ","
-	for y := 0; y < geo.TermHeight; y++ {
-		row := ""
-		for x := 0; x < geo.TermWidth; x++ {
-			underPlayer := (player.X == x && player.Y == y)
-			char := ""
-
-			if cellIx == len(commits)-1 {
-				char = utils.Green(grassChar)
-				if underPlayer {
-					char = player.Char
-					statusLine = "You're standing on a patch of grass in a field of wildflowers."
-				}
-			} else {
-				chance := rand.Float64()
-				if chance <= geo.Density {
-					commit := commits[cellIx]
-					char = commit.Char
-					if underPlayer {
-						char = player.Char
-						statusLine = fmt.Sprintf("You're standing at a flower called %s planted by %s.", commit.Sha, commit.Email)
-					}
-
-				} else {
-					char = utils.Green(grassChar)
-					if underPlayer {
-						char = player.Char
-						statusLine = "You're standing on a patch of grass in a field of wildflowers."
-					}
-				}
-				cellIx++
-			}
-
-			row += char
-		}
-		gardenRows = append(gardenRows, row)
-	}
-
-	for _, r := range gardenRows {
-		fmt.Fprintln(out, r)
-	}
-	fmt.Fprintf(out, utils.Bold(statusLine))
-}
-*/
 
 func shaToColorFunc(sha string) func(string) string {
 	return func(c string) string {
@@ -386,15 +360,10 @@ func shaToColorFunc(sha string) func(string) string {
 			panic(err)
 		}
 
-		//fmt.Println(sha[0:2], sha[2:4], sha[4:6])
-		//fmt.Println("COLOR CODE:", sha, red, green, blue)
-
-		// TODO figure out why escaping not working
 		return fmt.Sprintf("\033[38;2;%d;%d;%dm%s\033[0m", red, green, blue, c)
 	}
 }
 
-//func emailToChar(client *api.Client, email string) string {
 func emailToChar(email string) string {
 	numRE := regexp.MustCompile(`^[0-9]+$`)
 	parts := strings.Split(email, "@")
@@ -409,21 +378,6 @@ func emailToChar(email string) string {
 	} else {
 		return string(handle[0])
 	}
-	//type item struct {
-	//	Login string
-	//}
-	//var response struct {
-	//	Items []item
-	//}
-
-	//err := client.REST("GET", fmt.Sprintf("search/users?q=%s+in:email", email), nil, &response)
-
-	//if err != nil {
-	//	// TODO
-	//	fmt.Fprintf(os.Stderr, "failed to use search api: %w\n", err)
-	//}
-
-	//fmt.Printf("%#v\n", response)
 }
 
 func outputLines(output []byte) []string {
