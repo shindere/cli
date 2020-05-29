@@ -217,9 +217,12 @@ func isQuit(b []byte) bool {
 
 func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 	cellIx := 0
-	grassCell := &Cell{utils.Green(","), "You're standing on a patch of grass in a field of wildflowers."}
+	grassCell := &Cell{utils.RGB(0, 200, 0, ","), "You're standing on a patch of grass in a field of wildflowers."}
 	garden := [][]*Cell{}
 	streamIx := rand.Intn(geo.Width - 1)
+	if streamIx == geo.Width/2 {
+		streamIx--
+	}
 	tint := 0
 	for y := 0; y < geo.Height; y++ {
 		if cellIx == len(commits)-1 {
@@ -227,7 +230,7 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 		}
 		garden = append(garden, []*Cell{})
 		for x := 0; x < geo.Width; x++ {
-			if y > 0 && x == streamIx {
+			if x == streamIx {
 				garden[y] = append(garden[y], &Cell{
 					Char:       utils.RGB(tint, tint, 255, "#"),
 					StatusLine: "You are standing in a shallow stream. It's refreshing.",
@@ -247,7 +250,7 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 			}
 			if y == 0 && (x < geo.Width/2 || x > geo.Width/2) {
 				garden[y] = append(garden[y], &Cell{
-					Char:       " ",
+					Char:       utils.RGB(0, 200, 0, ","),
 					StatusLine: "You're standing by a wildflower garden. There is a light breeze.",
 				})
 				continue
