@@ -77,8 +77,6 @@ func (p *Player) move(direction Direction) {
 		}
 		p.X++
 	}
-
-	return
 }
 
 func init() {
@@ -147,6 +145,9 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	maxCommits := geo.Width * geo.Height
 
 	commits, err := getCommits(client, baseRepo, maxCommits)
+	if err != nil {
+		return err
+	}
 	player := &Player{0, 0, utils.Bold("@"), geo}
 
 	clear()
@@ -154,12 +155,15 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 	drawGarden(out, garden, player)
 
 	// thanks stackoverflow https://stackoverflow.com/a/17278776
-	exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
-	exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
+	_ = exec.Command("stty", "-F", "/dev/tty", "cbreak", "min", "1").Run()
+	_ = exec.Command("stty", "-F", "/dev/tty", "-echo").Run()
 
 	var b []byte = make([]byte, 1)
 	for {
-		os.Stdin.Read(b)
+		_, err := os.Stdin.Read(b)
+		if err != nil {
+			return err
+		}
 
 		quitting := false
 		switch {
@@ -331,11 +335,9 @@ func shaToColorFunc(sha string) func(string) string {
 }
 
 func computeSeed(seed string) int64 {
-	runes := []rune(seed)
-
 	lol := ""
 
-	for _, r := range runes {
+	for _, r := range seed {
 		lol += fmt.Sprintf("%d", int(r))
 	}
 
