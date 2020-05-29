@@ -113,6 +113,9 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	seed := computeSeed(ghrepo.FullName(baseRepo))
+	rand.Seed(seed)
+
 	type Item struct {
 		Author struct {
 			Login string
@@ -139,6 +142,9 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 		for _, r := range result {
 			colorFunc := shaToColorFunc(r.Sha)
 			handle := r.Author.Login
+			if handle == "" {
+				handle = "a mysterious stranger"
+			}
 			commits = append(commits, &Commit{
 				Handle: handle,
 				Sha:    r.Sha,
@@ -181,9 +187,6 @@ func repoGarden(cmd *cobra.Command, args []string) error {
 
 	termWidth -= 10
 	termHeight -= 10
-
-	seed := computeSeed(ghrepo.FullName(baseRepo))
-	rand.Seed(seed)
 
 	geo := &Geometry{
 		Width:      termWidth,
@@ -376,7 +379,7 @@ func computeSeed(seed string) int64 {
 		lol += fmt.Sprintf("%d", int(r))
 	}
 
-	result, err := strconv.ParseInt(lol, 10, 64)
+	result, err := strconv.ParseInt(lol[0:10], 10, 64)
 	if err != nil {
 		panic(err)
 	}
