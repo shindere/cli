@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -220,12 +219,32 @@ func plantGarden(commits []*Commit, geo *Geometry) [][]*Cell {
 	cellIx := 0
 	grassCell := &Cell{utils.Green(","), "You're standing on a patch of grass in a field of wildflowers."}
 	garden := [][]*Cell{}
+	streamIx := rand.Intn(geo.Width - 1)
+	tint := 0
 	for y := 0; y < geo.Height; y++ {
 		if cellIx == len(commits)-1 {
 			break
 		}
 		garden = append(garden, []*Cell{})
 		for x := 0; x < geo.Width; x++ {
+			if y > 0 && x == streamIx {
+				garden[y] = append(garden[y], &Cell{
+					Char:       utils.RGB(tint, tint, 255, "#"),
+					StatusLine: "You are standing in a shallow stream. It's refreshing.",
+				})
+				tint += 15
+				streamIx--
+				if rand.Float64() < 0.5 {
+					streamIx++
+				}
+				if streamIx < 0 {
+					streamIx = 0
+				}
+				if streamIx > geo.Width {
+					streamIx = geo.Width
+				}
+				continue
+			}
 			if y == 0 && (x < geo.Width/2 || x > geo.Width/2) {
 				garden[y] = append(garden[y], &Cell{
 					Char:       " ",
