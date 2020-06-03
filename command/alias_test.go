@@ -254,3 +254,6 @@ func TestAliasSet_invalid_command(t *testing.T) {
 }
 
 // TODO test for alias list
+
+func TestAliasList(t *testing.T) {
+}
