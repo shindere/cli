@@ -12,6 +12,7 @@ import (
 func init() {
 	RootCmd.AddCommand(aliasCmd)
 	aliasCmd.AddCommand(aliasSetCmd)
+	aliasCmd.AddCommand(aliasDeleteCmd)
 }
 
 var aliasCmd = &cobra.Command{
@@ -40,6 +41,10 @@ var aliasSetCmd = &cobra.Command{
 `,
 	Args: cobra.MinimumNArgs(2),
 	RunE: aliasSet,
+}
+
+var aliasDeleteCmd = &cobra.Command{
+	Use: "alias delete <alias>",
 }
 
 func aliasSet(cmd *cobra.Command, args []string) error {
