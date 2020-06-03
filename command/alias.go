@@ -117,16 +117,10 @@ func processArgs(args []string) []string {
 var aliasListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List your aliases",
-	Long: `gh alias list
-
-This command prints out all of the aliases gh is configured to use.
-
-Example:
-
-  $ gh alias list
-
-	  co:   pr checkout
-	  bugs: issue list --label="bugs"`,
+	Long:  `This command prints out all of the aliases gh is configured to use.`,
+	Example: `$ gh alias list
+co:   pr checkout
+bugs: issue list --label="bugs"`,
 	Args: cobra.ExactArgs(0),
 	RunE: aliasList,
 }
