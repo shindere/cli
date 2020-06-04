@@ -22,10 +22,11 @@
    $ make
    ```
 
-3. Move the resulting `bin/gh` executable to somewhere in your PATH
+3. Create a symbolic link to the `bin/gh` executable in a directory
+which appears in your PATH. For example:
 
    ```sh
-   $ sudo mv ./bin/gh /usr/local/bin/
+   $ sudo ln -s $PWD/bin/gh /usr/local/bin/
    ```
 
 4. Run `gh version` to check if it worked.
